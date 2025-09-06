@@ -1,0 +1,3 @@
+clerk:
+  secret:
+    key: ${clerk_secret_key}
