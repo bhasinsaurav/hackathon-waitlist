@@ -1,13 +1,18 @@
 package com.uplix.hackathon.Service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import com.uplix.hackathon.Dto.GetWaitlistDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Service
@@ -16,6 +21,8 @@ public class Waitlist {
 
     @Value("${clerk.secret.key}")
     private String CLERK_SECRET_KEY;
+
+
 
 
     public boolean sendEmailToClerk(HashMap<String, String> emailMap) throws UnirestException {
@@ -44,7 +51,17 @@ public class Waitlist {
         return true;
     }
 
+    public GetWaitlistDTO getWaitlist() throws UnirestException, JsonProcessingException {
+        HttpResponse<String> response = Unirest.get("https://api.clerk.com/v1/waitlist_entries")
+                .queryString("limit", 50)   // fetch up to 50 entries
+                .queryString("offset", 0)   // start from the first
+                .header("Authorization", "Bearer " + CLERK_SECRET_KEY)
+                .header("Accept", "application/json")
+                .asString();
 
+        log.info("Clerk waitlist response: {}", response.getBody());
 
-
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.readValue(response.getBody(), GetWaitlistDTO.class);
+    }
 }

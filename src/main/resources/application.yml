@@ -1,3 +1,16 @@
+spring:
+  jms:
+    listener:
+      concurrency: 5
+    pub-sub-domain: true
+
+solace:
+  jms:
+    host: ${SOLACE_JMS_HOST}
+    vpn: ${SOLACE_JMS_VPN}
+    username: ${SOLACE_JMS_USERNAME}
+    password: ${SOLACE_JMS_PASSWORD}
+
 clerk:
   secret:
-    key: ${clerk_secret_key}
+    key: ${CLERK_SECRET_KEY}
