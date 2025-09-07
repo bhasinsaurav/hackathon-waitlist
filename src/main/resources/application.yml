@@ -1,4 +1,7 @@
 spring:
+  lighthouse:
+    url: https://api.siterelic.com/lighthouse
+    api-key: ${LIGHTHOUSE_API_KEY}
   jms:
     listener:
       concurrency: 5
