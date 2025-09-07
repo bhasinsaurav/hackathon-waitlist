@@ -7,9 +7,9 @@ spring:
       concurrency: 5
     pub-sub-domain: true
   datasource:
-    url: jdbc:postgresql://localhost:5432/HackScore
-    username: postgres
-    password: 4560
+    url: jdbc:postgresql://uplix-db-sohalharkaran-9feb.d.aivencloud.com:27590/defaultdb?sslmode=require
+    username: avnadmin
+    password: ${DB_PASS}
   jpa:
     show:
       sql: true
