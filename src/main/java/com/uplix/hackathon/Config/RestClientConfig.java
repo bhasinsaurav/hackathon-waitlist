@@ -8,8 +8,10 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
-//    @Bean
-//    public Unirest getRestClient() {
-//        return Unirest;
-//    }
+    @Bean
+    public RestClient getRestClient() {
+        return RestClient.builder()
+                .baseUrl("https://api.github.com/")
+                .build();
+    }
 }

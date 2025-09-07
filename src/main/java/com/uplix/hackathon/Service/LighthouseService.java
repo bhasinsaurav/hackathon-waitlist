@@ -1,19 +1,27 @@
 package com.uplix.hackathon.Service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uplix.hackathon.Dto.LiveJmsListener;
 import com.uplix.hackathon.Dto.SiterelicResponseDto;
 import com.uplix.hackathon.Dto.LighthouseReportDto;
+import com.uplix.hackathon.Entity.JobScore;
+import com.uplix.hackathon.Enum.ServiceStatus;
+import com.uplix.hackathon.Repository.JobScoreRepo;
 import jakarta.jms.Message;
 import jakarta.jms.TextMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jms.annotation.JmsListener;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -29,21 +37,27 @@ public class LighthouseService {
     @Value("${spring.lighthouse.url}")
     private String lighthouseUrl;
 
+    private final JobScoreRepo jobScoreRepo;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // 🔔 Solace listener
-    @JmsListener(destination = "uplix/repo/request/lighthouse", containerFactory = "jmsListenerContainerFactory")
-    public void handleLighthouseRequest(Message message) {
-        try {
-            String payload = ((TextMessage) message).getText();
-            JsonNode jsonNode = objectMapper.readTree(payload);
-            String repoUrl = jsonNode.get("repoUrl").asText();
+    public LighthouseService(JobScoreRepo jobScoreRepo) {
+        this.jobScoreRepo = jobScoreRepo;
+    }
 
-            log.info("🔦 Lighthouse request received for repoUrl: {}", repoUrl);
+    // 🔔 Solace listener
+    @Transactional
+    @JmsListener(destination = "uplix/repo/request/lighthouse", containerFactory = "jmsListenerContainerFactory")
+    public void handleLighthouseRequest(String json) throws JsonProcessingException {
+        try {
+            LiveJmsListener liveJmsListener = new ObjectMapper().readValue(json, LiveJmsListener.class);
+            String liveUrl = liveJmsListener.liveUrl();
+
+            log.info("🔦 Lighthouse request received for repoUrl: {}", liveUrl);
 
             // 1. Trigger Siterelic Lighthouse run
-            SiterelicResponseDto response = getLighthouseScore(repoUrl);
+            SiterelicResponseDto response = getLighthouseScore(liveUrl);
             log.info("📊 Lighthouse API triggered: {}", response);
 
             if (response != null && response.getData() != null) {
@@ -53,8 +67,15 @@ public class LighthouseService {
                 // 2. Download + parse report
                 LighthouseReportDto report = getLighthouseReport(csvUrl);
                 log.info("✅ Lighthouse report parsed: {}", report);
+                JobScore referenceById = jobScoreRepo.getReferenceById(liveJmsListener.jobId());
+                referenceById.setAccessibilityScore(report.getAccessibility());
+                referenceById.setBestPracticesScore(report.getBestPractices());
+                referenceById.setSeoScore(report.getSeo());
+                referenceById.setPerformanceScore(report.getPerformance());
+                referenceById.setLiveScoreStatus(ServiceStatus.COMPLETED);
+                jobScoreRepo.save(referenceById);
             } else {
-                log.warn("⚠️ No Lighthouse data returned for {}", repoUrl);
+                log.warn("⚠️ No Lighthouse data returned for {}", liveUrl);
             }
 
         } catch (Exception e) {
